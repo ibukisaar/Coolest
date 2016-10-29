@@ -154,9 +154,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="AudioPlayer.h" />
     <ClInclude Include="Coolest.Windows.h" />
   </ItemGroup>
