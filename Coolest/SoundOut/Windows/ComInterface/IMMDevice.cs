@@ -21,7 +21,7 @@ namespace Coolest.SoundOut.Windows.ComInterface {
 		/// <param name="activationParams">Use <see cref="IntPtr.Zero"/> as the default value. See http://msdn.microsoft.com/en-us/library/windows/desktop/dd371405%28v=vs.85%29.aspx for more details.</param>
 		/// <param name="pinterface">Pointer to a pointer variable into which the method writes the address of the interface specified by parameter <paramref name="iid"/>.</param>
 		/// <returns>HRESULT</returns>
-		int Activate(Guid iid, CLSCTX clsctx, IntPtr activationParams /*zero*/, [Out] out IntPtr pinterface);
+		int Activate(ref Guid iid, CLSCTX clsctx, IntPtr activationParams /*zero*/, [Out] out IUnknown pinterface);
 
 		/// <summary>
 		/// Retrieves an interface to the device's property store.

@@ -60,6 +60,7 @@
     <Compile Include="SoundOut\Windows\ChannelMask.cs" />
     <Compile Include="SoundOut\Windows\CLSCTX.cs" />
     <Compile Include="SoundOut\Windows\ComInterface\IAudioClient.cs" />
+    <Compile Include="SoundOut\Windows\ComInterface\IAudioRenderClient.cs" />
     <Compile Include="SoundOut\Windows\ComInterface\IMMDevice.cs" />
     <Compile Include="SoundOut\Windows\ComInterface\IMMDeviceCollection.cs" />
     <Compile Include="SoundOut\Windows\ComInterface\IMMDeviceEnumerator.cs" />

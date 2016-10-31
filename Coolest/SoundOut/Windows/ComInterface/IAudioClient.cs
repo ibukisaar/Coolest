@@ -12,17 +12,30 @@ namespace Coolest.SoundOut.Windows.ComInterface {
 	[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 	[SuppressUnmanagedCodeSecurity]
 	unsafe interface IAudioClient : IUnknown {
+		[SuppressUnmanagedCodeSecurity]
+		[PreserveSig]
 		int Initialize(ShareMode shareMode, AudioClientStreamFlags streamFlags, long hnsBufferDuration, long hnsPeriodicity, WaveFormat format, void* audioSessionGuid = null);
-		int GetBufferSize([Out] out int bufferFrames);
-		int GetStreamLatency([Out] out long phnsLatency);
-		int GetCurrentPadding([Out] out int paddingFrames);
+		[SuppressUnmanagedCodeSecurity]
+		int GetBufferSize(out int bufferFrames);
+		[SuppressUnmanagedCodeSecurity]
+		int GetStreamLatency(out long phnsLatency);
+		[SuppressUnmanagedCodeSecurity]
+		int GetCurrentPadding(out int paddingFrames);
+		[SuppressUnmanagedCodeSecurity]
 		int IsFormatSupported(ShareMode shareMode, WaveFormat format, IntPtr closedMatch);
-		int GetMixFormat([Out] out WaveFormat deviceFormat);
-		int GetDevicePeriod([Out] out long phnsDefaultDevicePeriod, [Out] out long phnsMinimumDevicePeriod);
+		[SuppressUnmanagedCodeSecurity]
+		int GetMixFormat(out WaveFormat deviceFormat);
+		[SuppressUnmanagedCodeSecurity]
+		int GetDevicePeriod(out long phnsDefaultDevicePeriod, out long phnsMinimumDevicePeriod);
+		[SuppressUnmanagedCodeSecurity]
 		int Start();
+		[SuppressUnmanagedCodeSecurity]
 		int Stop();
+		[SuppressUnmanagedCodeSecurity]
 		int Reset();
+		[SuppressUnmanagedCodeSecurity]
 		int SetEventHandle(IntPtr eventHandle);
-		int GetService(ref Guid guid, [Out] out IntPtr ppv);
+		[SuppressUnmanagedCodeSecurity]
+		int GetService(ref Guid guid, out IUnknown ppv);
 	}
 }
