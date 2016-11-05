@@ -19,42 +19,43 @@ namespace Coolest.SoundOut {
 
 		public event EventHandler<PlaybackStoppedEventArgs> Stopped;
 
-
-		public AudioPlayerBase(IWaveStream waveStream) {
-			this.waveStream = waveStream;
-		}
+		public event EventHandler<ResampleEventArgs> Resample;
 
 		protected override void Dispose(bool disposing) {
-			playing = false;
-
-			if (disposing) {
-				if (!playThread.Join(1000)) playThread.Abort();
+			if (playing) {
+				Stop();
 			}
+
+			(waveStream as IDisposable)?.Dispose();
+			waveStream = null;
 		}
 
 		private void PlayProcess() {
-			int length = RequestBufferLength(true);
-			if (length <= 0) throw new InvalidOperationException("播放线程无法初始化缓冲区。");
+			try {
+				int length = RequestBufferLength(true);
+				if (length <= 0) throw new InvalidOperationException("播放线程无法初始化缓冲区。");
 
-			if (!playing) return;
+				if (!playing) return;
 
-			byte[] buffer = new byte[length];
-			int writeLength;
-			if (!Write(ref buffer, length, out writeLength)) {
-				playing = false;
-				return;
-			}
-
-			OnPlay();
-
-			while (playing) {
-				length = RequestBufferLength(false);
-				if (length <= 0) continue;
-
+				byte[] buffer = new byte[length];
+				int writeLength;
 				if (!Write(ref buffer, length, out writeLength)) {
 					playing = false;
 					return;
 				}
+
+				while (playing) {
+					length = RequestBufferLength(false);
+					if (length <= 0) continue;
+
+					if (!Write(ref buffer, length, out writeLength)) {
+						playing = false;
+						return;
+					}
+				}
+			} catch (Exception e) {
+				Stopped?.Invoke(this, new PlaybackStoppedEventArgs(waveStream, e));
+				throw e;
 			}
 		}
 
@@ -89,6 +90,8 @@ namespace Coolest.SoundOut {
 				if (playing) return;
 				playing = true;
 
+				OnStart();
+
 				playThread = new Thread(PlayProcess);
 				playThread.Priority = ThreadPriority.Highest;
 				playThread.Start();
@@ -100,12 +103,18 @@ namespace Coolest.SoundOut {
 				if (!playing) return;
 				playing = false;
 
+				playThread.Join();
+
 				OnStop();
 				Stopped?.Invoke(this, new PlaybackStoppedEventArgs(waveStream));
 			}
 		}
 
-		protected abstract void OnPlay();
+		protected void NotifyResample(ResampleEventArgs e) {
+			Resample?.Invoke(this, e);
+		}
+
+		protected abstract void OnStart();
 
 		protected abstract void OnStop();
 

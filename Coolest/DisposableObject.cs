@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 namespace Coolest {
 	public abstract class DisposableObject : IDisposable {
@@ -15,6 +12,17 @@ namespace Coolest {
 		public void Dispose() {
 			Dispose(true);
 			GC.SuppressFinalize(this);
+		}
+
+		public static void ReleaseComObject(object comInterface) {
+			Marshal.ReleaseComObject(comInterface);
+		}
+
+		public static void ReleaseComObject<T>(ref T comInterface) where T : class {
+			if (comInterface != null) {
+				ReleaseComObject(comInterface);
+				comInterface = null;
+			}
 		}
 	}
 }
