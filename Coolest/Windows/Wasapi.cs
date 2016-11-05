@@ -42,23 +42,27 @@ namespace Coolest.Windows {
 		public int DurationMillisecond => durationMillisecond;
 		public WaveFormat Format => format;
 		public StreamFlags StreamFlags => streamFlags;
+		public DataFlow DataFlow => device.DataFlow;
+		public bool IsCapture => DataFlow == DataFlow.Capture || streamFlags.HasFlag(StreamFlags.StreamFlagsLoopback);
 
 		public Wasapi(MMDevice device, StreamFlags streamFlags, ShareMode shareMode, bool eventSync, int durationMillisecond) {
 			audioClient = device.AudioClient;
+			if (shareMode == ShareMode.Exclusive) {
+				eventSync = true;
+			}
+
 			this.streamFlags = streamFlags;
 			this.device = device;
 			this.shareMode = shareMode;
 			this.eventSync = eventSync;
 			this.durationMillisecond = durationMillisecond;
+
+			if (eventSync) {
+				this.streamFlags |= StreamFlags.StreamFlagsEventCallback;
+			}
 		}
 
 		public void Initialize(WaveFormat format) {
-			if (shareMode == ShareMode.Exclusive) {
-				eventSync = true;
-			}
-
-			if (eventSync) streamFlags |= StreamFlags.StreamFlagsEventCallback;
-
 			this.format = InitializeMatchFormat(format);
 			if (this.format == null) {
 				throw new ArgumentException("无法从设备中找到支持的格式");
@@ -76,9 +80,8 @@ namespace Coolest.Windows {
 			WaveFormatExtensible result;
 			bool success = audioClient.IsFormatSupported(shareMode, inFormat, out result);
 			if (success) {
-				if (result != null) {
-					inFormat = result;
-				}
+				if (result != null) inFormat = result;
+				if (IsCapture) inFormat = WaveFormatExtensible.StandardWaveFormat(inFormat);
 
 				long bufferDuration = durationMillisecond * 10000L;
 				long periodicity = shareMode == ShareMode.Shared ? 0 : bufferDuration;
@@ -130,10 +133,8 @@ namespace Coolest.Windows {
 			}
 
 			for (int channelPointer = channelIndex; channelPointer >= 0; channelPointer--) {
-				for (int ratePointer = rateIndex; ratePointer >= 0; ratePointer--) {
-					int bitPointer =
-						ratePointer == rateIndex && channelPointer == channelIndex ? bitIndex + 1 : bitIndex;
-					for (; bitPointer >= 0; bitPointer--) {
+				for (int bitPointer = bitIndex; bitPointer >= 0; bitPointer--) {
+					for (int ratePointer = rateIndex; ratePointer >= 0; ratePointer--) {
 						result = InitializeMatchFormat(ratePointer, bitPointer, channelPointer);
 						if (result != null) goto Success;
 					}

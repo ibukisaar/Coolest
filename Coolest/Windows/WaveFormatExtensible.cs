@@ -149,7 +149,7 @@ namespace Coolest.Windows {
 		/// </summary>
 		/// <returns>A simple <see cref="WaveFormat"/> instance.</returns>
 		public WaveFormat ToWaveFormat() {
-			return new WaveFormat(SampleRate, BitsPerSample, Channels, AudioSubTypes.EncodingFromSubType(SubFormat));
+			return new WaveFormat(SampleRate, ValidBitsPerSample, Channels, AudioSubTypes.EncodingFromSubType(SubFormat));
 		}
 
 		/// <summary>
@@ -188,6 +188,11 @@ namespace Coolest.Windows {
 			} else {
 				return new WaveFormatExtensible(format.SampleRate, format.BitsPerSample, format.Channels);
 			}
+		}
+
+		public static WaveFormat StandardWaveFormat(WaveFormat format) {
+			var formatEx = format as WaveFormatExtensible;
+			return formatEx != null ? formatEx.ToWaveFormat() : format;
 		}
 	}
 }

@@ -10,62 +10,44 @@ using System.Runtime.InteropServices;
 
 namespace Coolest.Windows {
 	unsafe public sealed class WasapiIn : AudioCaptureBase {
-		private IAudioClient audioClient;
-		private IAudioCaptureClient captureClient;
-		private WaveFormat format;
+		private Wasapi wasapi;
+		private AudioCaptureClient captureClient;
 		private AutoResetEvent eventObject = new AutoResetEvent(false);
-		private IntPtr buffer;
+		private byte[] recordBuffer;
 		private int frames;
-		private int durationMillisecond;
 
-		public override WaveFormat Format => format;
+		public override WaveFormat Format => wasapi.Format;
 
-		public WasapiIn(bool loopback = true, int durationMillisecond = 100) {
-			this.durationMillisecond = durationMillisecond;
+		public WasapiIn(bool loopback = true, ShareMode shareMode = ShareMode.Shared, bool eventSync = false, Role role = Role.Multimedia, int durationMillisecond = 30) {
+			wasapi = new Wasapi(
+				Wasapi.GetDefaultDevice(loopback ? DataFlow.Render : DataFlow.Capture, role),
+				loopback ? StreamFlags.StreamFlagsLoopback : StreamFlags.None,
+				shareMode, eventSync, durationMillisecond);
+		}
 
-			audioClient = CreateAudioClient(loopback);
-			int ret = audioClient.GetMixFormat(out format);
-			format.ExtraSize = 0;
-			format.WaveFormatTag = AudioEncoding.IeeeFloat;
+		public void Initialize() {
+			var format = WaveFormatExtensible.Make(wasapi.AudioClient.MixFormat);
+			wasapi.Initialize(format);
 
-			StreamFlags flags = StreamFlags.None;
-			if (loopback) flags |= StreamFlags.StreamFlagsLoopback;
-			ret = audioClient.Initialize(ShareMode.Shared, flags, durationMillisecond * 10000, 0, format, Guid.Empty);
-			captureClient = CreateRenderClient(audioClient);
-			// audioClient.SetEventHandle(eventObject.SafeWaitHandle.DangerousGetHandle());
+			captureClient = wasapi.AudioClient.AudioCaptureClient;
+			if (wasapi.EventSync) {
+				wasapi.AudioClient.SetEventHandle(eventObject.SafeWaitHandle.DangerousGetHandle());
+			}
+
+			recordBuffer = new byte[wasapi.AudioClient.BufferSize * wasapi.Format.BlockAlign];
 		}
 
 		protected override void Dispose(bool disposing) {
 			if (disposing) {
+				eventObject?.WaitOne();
 				eventObject?.Close();
 				eventObject = null;
+
+				wasapi.Dispose();
+				captureClient.Dispose();
 			}
 
 			base.Dispose(disposing);
-
-			if (audioClient != null) {
-				Marshal.FinalReleaseComObject(audioClient);
-				audioClient = null;
-			}
-			if (captureClient != null) {
-				Marshal.FinalReleaseComObject(captureClient);
-				captureClient = null;
-			}
-		}
-
-		private static IAudioClient CreateAudioClient(bool loopback) {
-			IMMDeviceEnumerator deviceEnumer = null;
-			IMMDevice device = null;
-			try {
-				object client;
-				deviceEnumer = (IMMDeviceEnumerator) new MMDeviceEnumerator();
-				deviceEnumer.GetDefaultAudioEndpoint(loopback ? DataFlow.Render : DataFlow.Capture, Role.Console, out device);
-				device.Activate(typeof(IAudioClient).GUID, ClsCtx.ALL, IntPtr.Zero, out client);
-				return client as IAudioClient;
-			} finally {
-				Marshal.FinalReleaseComObject(deviceEnumer);
-				Marshal.FinalReleaseComObject(device);
-			}
 		}
 
 		private static IAudioCaptureClient CreateRenderClient(IAudioClient audioClient) {
@@ -75,33 +57,52 @@ namespace Coolest.Windows {
 		}
 
 		protected override void OnStart() {
-			audioClient.Start();
+			wasapi.AudioClient.Start();
 		}
 
 		protected override void OnStop() {
-			audioClient.Stop();
+			wasapi.AudioClient.Stop();
 		}
 
-		protected override void Read(byte[] buffer, int bytes) {
-			Marshal.Copy(this.buffer, buffer, 0, bytes);
-			captureClient.ReleaseBuffer(frames);
-		}
+		protected override void Read(ReadHandler readHandler) {
+			int frameCount = wasapi.AudioClient.BufferSize;
+			int durationMs = 1000 * frameCount / Format.SampleRate;
 
-		protected override int RequestBufferLength() {
-			int packets;
-			captureClient.GetNextPacketSize(out packets);
-			if (packets == 0)
-				Thread.Sleep(durationMillisecond / 2);
-
-			long a, b;
-			AudioClientBufferFlags flags;
-			captureClient.GetBuffer(out buffer, out frames, out flags, out a, out b);
-			if (!flags.HasFlag(AudioClientBufferFlags.Silent)) {
-				return frames * format.BlockAlign;
+			if (wasapi.EventSync) {
+				if (!eventObject.WaitOne(durationMs * 2, false)) {
+					return;
+				}
 			} else {
+				Thread.Sleep(durationMs / 2);
+			}
+
+			int offset = 0;
+
+			while (true) {
+				int packetSize = captureClient.GetNextPacketSize();
+				if (packetSize == 0) break;
+
+				int frames;
+				AudioClientBufferFlags flags;
+				IntPtr bufferPtr = captureClient.GetBuffer(out frames, out flags);
+
+				int readBytes = frames * Format.BlockAlign;
+				if (recordBuffer.Length - offset < readBytes && offset > 0) {
+					readHandler(recordBuffer, offset);
+					offset = 0;
+				}
+
+				if ((flags & AudioClientBufferFlags.Silent) != 0) {
+					Array.Clear(recordBuffer, offset, readBytes);
+				} else {
+					Marshal.Copy(bufferPtr, recordBuffer, offset, readBytes);
+				}
+				offset += readBytes;
 				captureClient.ReleaseBuffer(frames);
 			}
-			return 0;
+			if (offset > 0) {
+				readHandler(recordBuffer, offset);
+			}
 		}
 	}
 }

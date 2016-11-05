@@ -10,12 +10,13 @@ namespace Coolest.SoundIn {
 		protected object locker = new object();
 		protected Thread captureThread;
 		protected bool capture = false;
-		protected byte[] cache = new byte[0];
 		protected DataAvailableEventArgs eventArgs = new DataAvailableEventArgs();
 
 		public event EventHandler<DataAvailableEventArgs> DataAvailable;
 
 		public event EventHandler<CaptureStoppedEventArgs> Stopped;
+
+		public delegate void ReadHandler(byte[] buffer, int length);
 
 		public abstract WaveFormat Format { get; }
 
@@ -28,19 +29,17 @@ namespace Coolest.SoundIn {
 		private void CaptureProcess() {
 			try {
 				while (capture) {
-					int length = RequestBufferLength();
-					if (length > 0) {
-						if (cache.Length < length)
-							cache = new byte[length];
-						Read(cache, length);
-
-						eventArgs.Data = cache;
-						eventArgs.Bytes = length;
-						DataAvailable?.Invoke(this, eventArgs);
-					}
+					Read((data, length) => {
+						if (DataAvailable != null) {
+							eventArgs.Data = data;
+							eventArgs.Bytes = length;
+							DataAvailable(this, eventArgs);
+						}
+					});
 				}
 			} catch (Exception e) {
 				Stopped?.Invoke(this, new CaptureStoppedEventArgs(e));
+				throw e;
 			}
 		}
 
@@ -73,8 +72,6 @@ namespace Coolest.SoundIn {
 
 		protected abstract void OnStop();
 
-		protected abstract int RequestBufferLength();
-
-		protected abstract void Read(byte[] buffer, int bytes);
+		protected abstract void Read(ReadHandler readHandler);
 	}
 }

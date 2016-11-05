@@ -62,7 +62,7 @@ namespace Coolest.Windows {
 			base.Dispose(disposing);
 
 			if (disposing) {
-				eventObject.WaitOne();
+				eventObject?.WaitOne();
 				eventObject?.Close();
 				eventObject = null;
 
