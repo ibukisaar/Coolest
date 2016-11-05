@@ -14,7 +14,6 @@ namespace Coolest.Windows {
 		private AudioCaptureClient captureClient;
 		private AutoResetEvent eventObject = new AutoResetEvent(false);
 		private byte[] recordBuffer;
-		private int frames;
 
 		public override WaveFormat Format => wasapi.Format;
 
